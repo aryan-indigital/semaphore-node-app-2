@@ -1,0 +1,35 @@
+name: CI/CD to Dokploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Run application test
+        run: npm test
+
+      - name: Trigger Dokploy deployment
+        env:
+          DOKPLOY_SESSION_COOKIE: ${{ secrets.DOKPLOY_SESSION_COOKIE }}
+        run: |
+          test -n "$DOKPLOY_SESSION_COOKIE"
+          curl --fail-with-body --retry 3 --retry-delay 2 \
+            -H "Content-Type: application/json" \
+            -H "Cookie: $DOKPLOY_SESSION_COOKIE" \
+            --data '{"applicationId":"4WOA5Bl1586yVqfaXP9qa"}' \
+            http://139.59.86.213:3000/api/application.deploy
