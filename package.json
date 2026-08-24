@@ -1,0 +1,10 @@
+{
+  "name": "semaphore-node-app-2",
+  "version": "1.0.0",
+  "private": true,
+  "description": "The second independent Node.js app in the Semaphore CI/CD demo.",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --check server.js"
+  }
+}

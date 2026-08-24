@@ -1,0 +1,88 @@
+---
+- name: Test and deploy Node.js app 2
+  hosts: slave
+  become: true
+  gather_facts: true
+  vars:
+    app_name: node-app-2
+    app_port: 3002
+    app_directory: /opt/semaphore-node-apps/app-two
+
+  tasks:
+    - name: Install Node.js runtime
+      ansible.builtin.apt:
+        name:
+          - nodejs
+          - npm
+        state: present
+        update_cache: true
+
+    - name: Create application directory
+      ansible.builtin.file:
+        path: "{{ app_directory }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Deploy package manifest
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../package.json"
+        dest: "{{ app_directory }}/package.json"
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Deploy application source
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../server.js"
+        dest: "{{ app_directory }}/server.js"
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Run application CI syntax test
+      ansible.builtin.command: npm test
+      args:
+        chdir: "{{ app_directory }}"
+      changed_when: false
+
+    - name: Install systemd service
+      ansible.builtin.copy:
+        dest: "/etc/systemd/system/{{ app_name }}.service"
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          [Unit]
+          Description={{ app_name }} Semaphore demo service
+          After=network.target
+
+          [Service]
+          Type=simple
+          WorkingDirectory={{ app_directory }}
+          ExecStart=/usr/bin/node {{ app_directory }}/server.js
+          Environment=PORT={{ app_port }}
+          Environment=APP_NAME={{ app_name }}
+          Restart=always
+          RestartSec=3
+          User=root
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Reload systemd
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+
+    - name: Enable and restart application
+      ansible.builtin.systemd_service:
+        name: "{{ app_name }}"
+        enabled: true
+        state: restarted
+
+    - name: Verify application health endpoint
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ app_port }}/health"
+        status_code: 200
+        return_content: true
